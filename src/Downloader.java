@@ -34,6 +34,12 @@ public class Downloader extends Composite {
 	private Button btnDownload;
 	private Thread downloadThread;
 
+	String url;
+	Document doc = null;
+	String baseURL;
+	int page;
+	String folderPath;
+	
 	/**
 	 * Create the composite.
 	 * 
@@ -87,10 +93,20 @@ public class Downloader extends Composite {
 		btnDownload.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent event) {
-				String url;
+				initializeVariables();
+				
+				// Create thread to download in background
+				Runnable r = new BackgroundRunnable(display, shell, doc, progress, baseURL, folderPath, page, btnDownload);
+			    downloadThread = new BackgroundThread(r);
+			    downloadThread.start();
+			    
+			    btnDownload.setEnabled(false);
+			}
+
+			private void initializeVariables() {
 				// url = "http://www.mangareader.net/426/rave.html";
 				url = link.getText();
-				Document doc = null;
+				
 				try {
 					doc = Jsoup.connect(url).userAgent("Mozilla")
 							.timeout(0).get();
@@ -98,21 +114,14 @@ public class Downloader extends Composite {
 					e1.printStackTrace();
 				}
 				
-				String baseURL = "http://www.mangareader.net";
-				int page = 1;
+				baseURL = "http://www.mangareader.net";
+				page = 1;
 				
 				// String folderPath =
 				// "C:/Users/AdminNUS/Downloads/feed/";
-				String folderPath = path.getText();
+				folderPath = path.getText();
 				folderPath = folderPath.replaceAll("\\\\", "/");
 				folderPath = folderPath + "/";
-				
-				Runnable r = new BackgroundRunnable(display, shell, doc, progress, baseURL, folderPath, page, btnDownload);
-			    
-			    downloadThread = new BackgroundThread(r);
-			    downloadThread.start();
-			    
-			    btnDownload.setEnabled(false);
 			}
 
 		});
@@ -161,6 +170,7 @@ public class Downloader extends Composite {
 				}
 			}
 		});
+		
 		FormData fd_btnBrowse = new FormData();
 		fd_btnBrowse.top = new FormAttachment(lblSaveTo, -5, SWT.TOP);
 		fd_btnBrowse.right = new FormAttachment(progress, 0, SWT.RIGHT);

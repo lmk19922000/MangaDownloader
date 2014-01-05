@@ -1,6 +1,7 @@
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URL;
@@ -30,12 +31,15 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 public class Downloader extends Composite {
-
+	
+	static Display display;
+	static Shell shell;
+	
 	private final FormToolkit toolkit = new FormToolkit(Display.getCurrent());
 	private Text link;
 	private Text path;
 	private Label progress;
-	private static boolean isExit = false;
+	private static boolean isCanceled = false;
 
 	/**
 	 * Create the composite.
@@ -90,81 +94,30 @@ public class Downloader extends Composite {
 		btnNewButton_1.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent event) {
-				
+				String url;
+				// url = "http://www.mangareader.net/426/rave.html";
+				url = link.getText();
+				Document doc = null;
 				try {
-					String url;
-					// url = "http://www.mangareader.net/426/rave.html";
-					url = link.getText();
-					Document doc = Jsoup.connect(url).userAgent("Mozilla")
+					doc = Jsoup.connect(url).userAgent("Mozilla")
 							.timeout(0).get();
-					String baseURL = "http://www.mangareader.net";
-					int page = 1;
-
-					try {
-						Elements ee = doc
-								.select("#chapterlist #listing tbody tr td a");
-						for (Element e : ee) {
-							if (isExit) {
-								break;
-							}
-
-							System.out.println(e.text());
-							System.out.println(e.attr("href"));
-
-							progress.setText("Currently downloading "
-									+ e.text());
-
-							String chapterURL = baseURL + e.attr("href");
-							Document chapter = Jsoup.connect(chapterURL)
-									.userAgent("Mozilla").timeout(0).get();
-							Elements ee2 = chapter
-									.select("#topchapter #navi #selectpage #pageMenu option");
-
-							for (Element e2 : ee2) {
-
-								String pageURL = baseURL + e2.attr("value");
-
-								Document pageinchapter = Jsoup.connect(pageURL)
-										.userAgent("Mozilla").timeout(0).get();
-
-								String src = pageinchapter
-										.select("#imgholder a img").first()
-										.attr("src");
-
-								String imgName = StringUtils
-										.substringAfterLast(src, "/");
-								String fileType = StringUtils
-										.substringAfterLast(src, ".");
-
-								// String folderPath =
-								// "C:/Users/AdminNUS/Downloads/feed/";
-								String folderPath = path.getText();
-								folderPath = folderPath.replaceAll("\\\\", "/");
-								folderPath = folderPath + "/";
-
-								URL url2 = new URL(src);
-								InputStream in = url2.openStream();
-								OutputStream out = new BufferedOutputStream(
-										new FileOutputStream(folderPath
-												+ String.valueOf(page) + "."
-												+ fileType));
-								page++;
-								for (int b; (b = in.read()) != -1;) {
-									out.write(b);
-								}
-								out.close();
-								in.close();
-							}
-							progress.setText("Download completed");
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-
-				} catch (Exception e) {
-					e.printStackTrace();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
 				}
 				
+				String baseURL = "http://www.mangareader.net";
+				int page = 1;
+				
+				// String folderPath =
+				// "C:/Users/AdminNUS/Downloads/feed/";
+				String folderPath = path.getText();
+				folderPath = folderPath.replaceAll("\\\\", "/");
+				folderPath = folderPath + "/";
+				
+				Runnable r = new BackgroundThread(display, shell, doc, progress, baseURL, folderPath, page);
+			    
+			    new Thread(r).start();		
 			}
 
 		});
@@ -225,7 +178,7 @@ public class Downloader extends Composite {
 		btnCancel.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				isExit = true;
+				isCanceled = true;
 			}
 		});
 		FormData fd_btnCancel = new FormData();
@@ -238,8 +191,8 @@ public class Downloader extends Composite {
 	}
 
 	public static void main(String[] args) {
-		Display display = new Display();
-		Shell shell = new Shell(display);
+		display = new Display();
+		shell = new Shell(display);
 		Downloader calc = new Downloader(shell, SWT.NONE);
 		calc.pack();
 		shell.pack();

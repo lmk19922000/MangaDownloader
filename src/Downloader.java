@@ -1,15 +1,9 @@
-import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.URL;
 
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.DisposeEvent;
 import org.eclipse.swt.events.DisposeListener;
@@ -27,8 +21,6 @@ import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 
 public class Downloader extends Composite {
 	
@@ -39,7 +31,8 @@ public class Downloader extends Composite {
 	private Text link;
 	private Text path;
 	private Label progress;
-	private static boolean isCanceled = false;
+	private Button btnDownload;
+	private Thread downloadThread;
 
 	/**
 	 * Create the composite.
@@ -90,8 +83,8 @@ public class Downloader extends Composite {
 		toolkit.adapt(path, true, true);
 		fd_text_1.right = new FormAttachment(100, -69);
 
-		Button btnNewButton_1 = new Button(this, SWT.NONE);
-		btnNewButton_1.addSelectionListener(new SelectionAdapter() {
+		btnDownload = new Button(this, SWT.NONE);
+		btnDownload.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent event) {
 				String url;
@@ -102,7 +95,6 @@ public class Downloader extends Composite {
 					doc = Jsoup.connect(url).userAgent("Mozilla")
 							.timeout(0).get();
 				} catch (IOException e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 				
@@ -115,19 +107,21 @@ public class Downloader extends Composite {
 				folderPath = folderPath.replaceAll("\\\\", "/");
 				folderPath = folderPath + "/";
 				
-				Runnable r = new BackgroundThread(display, shell, doc, progress, baseURL, folderPath, page);
+				Runnable r = new BackgroundRunnable(display, shell, doc, progress, baseURL, folderPath, page, btnDownload);
 			    
-			    new Thread(r).start();		
+			    downloadThread = new BackgroundThread(r);
+			    downloadThread.start();
+			    
+			    btnDownload.setEnabled(false);
 			}
 
 		});
 		FormData btnSave = new FormData();
+		btnSave.left = new FormAttachment(0, 63);
 		btnSave.top = new FormAttachment(path, 16);
-		btnSave.left = new FormAttachment(0, 94);
-		btnSave.right = new FormAttachment(100, -252);
-		btnNewButton_1.setLayoutData(btnSave);
-		toolkit.adapt(btnNewButton_1, true, true);
-		btnNewButton_1.setText("Download");
+		btnDownload.setLayoutData(btnSave);
+		toolkit.adapt(btnDownload, true, true);
+		btnDownload.setText("Download");
 
 		Label lblProgress = new Label(this, SWT.NONE);
 		FormData fd_lblProgress = new FormData();
@@ -135,11 +129,11 @@ public class Downloader extends Composite {
 		fd_lblProgress.top = new FormAttachment(lblSaveTo, 62);
 		lblProgress.setLayoutData(fd_lblProgress);
 		toolkit.adapt(lblProgress, true, true);
-		lblProgress.setText("Progress");
+		lblProgress.setText("Progress:");
 
 		progress = new Label(this, SWT.NONE);
 		FormData fd_lblChap = new FormData();
-		fd_lblChap.top = new FormAttachment(btnNewButton_1, 18);
+		fd_lblChap.top = new FormAttachment(btnDownload, 18);
 		fd_lblChap.left = new FormAttachment(lblProgress, 16);
 		fd_lblChap.right = new FormAttachment(100, -10);
 		progress.setLayoutData(fd_lblChap);
@@ -178,16 +172,23 @@ public class Downloader extends Composite {
 		btnCancel.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				isCanceled = true;
+				if (downloadThread.isAlive()){
+					((BackgroundThread) downloadThread).cancel();
+					progress.setText("Canceled");
+				}
+				if (!btnDownload.isEnabled()){
+					btnDownload.setEnabled(true);
+				}
 			}
 		});
 		FormData fd_btnCancel = new FormData();
-		fd_btnCancel.right = new FormAttachment(btnNewButton_1, 142, SWT.RIGHT);
-		fd_btnCancel.top = new FormAttachment(path, 16);
-		fd_btnCancel.left = new FormAttachment(btnNewButton_1, 38);
+		fd_btnCancel.right = new FormAttachment(100, -69);
+		fd_btnCancel.top = new FormAttachment(btnDownload, 0, SWT.TOP);
 		btnCancel.setLayoutData(fd_btnCancel);
 		toolkit.adapt(btnCancel, true, true);
 		btnCancel.setText("Cancel");
+		btnSave.right = new FormAttachment(100, -307);
+		fd_btnCancel.left = new FormAttachment(0, 301);
 	}
 
 	public static void main(String[] args) {
